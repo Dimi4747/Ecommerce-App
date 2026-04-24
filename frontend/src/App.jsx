@@ -12,7 +12,7 @@ import './App.css';
 function App() {
   return (
     <Router>
-      <div className="flex h-screen bg-gray-100">
+      <div className="flex flex-col h-screen bg-gray-100">
         <Sidebar />
         <div className="flex-1 overflow-auto">
           <Routes>

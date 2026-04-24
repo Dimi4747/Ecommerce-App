@@ -20,32 +20,30 @@ const Sidebar = () => {
   ];
 
   return (
-    <div className="w-64 bg-gray-900 text-white">
-      <div className="p-6">
-        <h1 className="text-2xl font-bold text-blue-400">E-Commerce Admin</h1>
-      </div>
-      
-      <nav className="mt-6">
-        <div className="px-4 space-y-2">
+    <div className="w-full bg-gray-900 text-white shadow-lg">
+      <div className="flex items-center justify-between px-6 py-4">
+        <h1 className="text-xl font-bold text-blue-400">E-Commerce Admin</h1>
+        
+        <nav className="flex space-x-1">
           {navigation.map((item) => {
             const isActive = location.pathname === item.href;
             return (
               <Link
                 key={item.name}
                 to={item.href}
-                className={`flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors ${
+                className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
                   isActive
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                    ? 'bg-blue-600 text-white shadow-md transform scale-105'
+                    : 'text-gray-300 hover:bg-gray-800 hover:text-white hover:shadow-md'
                 }`}
               >
-                <item.icon className="mr-3 h-5 w-5" />
-                {item.name}
+                <item.icon className="mr-2 h-5 w-5" />
+                <span className="hidden md:inline">{item.name}</span>
               </Link>
             );
           })}
-        </div>
-      </nav>
+        </nav>
+      </div>
     </div>
   );
 };
