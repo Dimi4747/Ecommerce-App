@@ -9,10 +9,6 @@
 .DS_Store
 Thumbs.db
 
-# Dependencies
-node_modules/
-vendor/
-
 # Logs
 *.log
 npm-debug.log*
@@ -20,11 +16,5 @@ yarn-debug.log*
 yarn-error.log*
 
 # Environment
-.env
 .env.local
 .env.*.local
-
-# Build outputs
-dist/
-build/
-*.cache
