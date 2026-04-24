@@ -7,12 +7,12 @@ This implementation plan creates a comprehensive Laravel database schema for an 
 ## Tasks
 
 - [ ] 1. Create Phase 1 migrations for independent tables
-  - [ ] 1.1 Extend users table with e-commerce fields
+  - [x] 1.1 Extend users table with e-commerce fields
     - Add phone, date_of_birth, role columns to existing users table
     - Add soft deletes to users table
     - _Requirements: 4.1, 13.4_
   
-  - [ ] 1.2 Create categories table migration
+  - [x] 1.2 Create categories table migration
     - Create categories table with name, slug, description, parent_id, sort_order
     - Add self-referencing foreign key for hierarchical structure
     - Add indexes on slug
