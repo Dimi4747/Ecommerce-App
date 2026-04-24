@@ -37,7 +37,9 @@ docker-compose exec app php artisan migrate
 
 ## Configuration .env
 
-Mettre à jour ces valeurs dans `backend/.env` :
+Les variables d'environnement sont automatiquement injectées dans le conteneur `app`. 
+
+Si vous souhaitez personnaliser, créez `backend/.env` à partir de `.env.example` et modifiez ces valeurs :
 
 ```env
 DB_CONNECTION=mysql
@@ -47,10 +49,16 @@ DB_DATABASE=laravel
 DB_USERNAME=laravel
 DB_PASSWORD=laravel
 
+CACHE_STORE=redis
+SESSION_DRIVER=redis
+QUEUE_CONNECTION=redis
+
 REDIS_HOST=redis
 REDIS_PASSWORD=null
 REDIS_PORT=6379
 ```
+
+Note : Les variables d'environnement définies dans docker-compose.yml ont priorité sur celles du fichier .env
 
 ## Commandes utiles
 
