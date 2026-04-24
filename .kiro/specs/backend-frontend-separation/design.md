@@ -35,11 +35,37 @@ project-root/
 
 ### Key Design Decisions
 
-1. **Physical Separation**: Two distinct project directories with independent dependency management
-2. **Asset Compilation**: Frontend builds independently; backend serves compiled assets
-3. **Inertia Communication**: Backend sends JSON responses with page props; frontend renders React components
-4. **Development Workflow**: Two concurrent dev servers (Laravel serve + Vite HMR)
-5. **Production Deployment**: Frontend builds to `dist/`, backend serves from `public/build/` or CDN
+1. **Hybrid Architecture**: Frontend in separate folder but uses `laravel-vite-plugin` for Laravel compatibility
+2. **Physical Separation**: Two distinct project directories with independent dependency management
+3. **Laravel Integration**: Keep `laravel-vite-plugin` to maintain compatibility with Laravel's `@vite()` directive
+4. **Asset Compilation**: Frontend builds independently; backend serves compiled assets via plugin
+5. **Inertia Communication**: Backend sends JSON responses with page props; frontend renders React components
+6. **Development Workflow**: Two concurrent dev servers (Laravel serve + Vite HMR)
+7. **Production Deployment**: Frontend builds to `dist/`, backend reads manifest via `laravel-vite-plugin`
+
+### Why Hybrid Architecture?
+
+**The Problem with Full Separation**:
+The initial design attempted to remove `laravel-vite-plugin` entirely, but this creates a critical incompatibility:
+- Laravel's `@vite()` directive is built to work with `laravel-vite-plugin`
+- The directive expects the plugin to handle dev server detection, manifest reading, and asset path resolution
+- Removing the plugin would require reimplementing all this functionality manually
+
+**The Hybrid Solution**:
+Instead of fighting Laravel's architecture, we embrace it while achieving our separation goals:
+- **Frontend lives in separate folder** (`frontend/` instead of `resources/js/`)
+- **Frontend keeps `laravel-vite-plugin`** for Laravel compatibility
+- **Plugin configured to work with separated structure** via `input` and `buildDirectory` options
+- **Laravel naturally communicates with Vite** through the plugin's built-in mechanisms
+- **Simpler, more maintainable, follows Laravel conventions**
+
+**Benefits**:
+- ✅ Physical separation of concerns (backend/ and frontend/ folders)
+- ✅ Independent frontend development and testing
+- ✅ No manual manifest parsing or asset path resolution
+- ✅ Automatic dev server detection via `hot` file
+- ✅ Standard Laravel workflow, easier for team onboarding
+- ✅ Future-proof: updates to Laravel Vite integration work automatically
 
 ---
 
@@ -163,13 +189,8 @@ class HandleInertiaRequests extends Middleware
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title inertia>{{ config('app.name', 'Laravel') }}</title>
     
-    @if (app()->environment('local'))
-        {{-- Development: Load from Vite dev server --}}
-        @vite(['resources/js/app.jsx'], env('VITE_DEV_SERVER_URL', 'http://localhost:5173'))
-    @else
-        {{-- Production: Load from manifest --}}
-        @vite(['resources/js/app.jsx'])
-    @endif
+    {{-- Laravel Vite plugin handles dev vs production automatically --}}
+    @vite(['../frontend/src/app.jsx'])
     
     @inertiaHead
 </head>
@@ -180,25 +201,47 @@ class HandleInertiaRequests extends Middleware
 ```
 
 **Key Features**:
-- Conditional loading based on environment (dev vs production)
-- `@inertia` directive renders the root div with initial page data
-- `@inertiaHead` injects page-specific head elements
+- **Simplified loading**: `@vite()` directive handles dev vs production automatically
+- **Path to frontend**: Points to `../frontend/src/app.jsx` (relative to backend)
+- **No conditional logic needed**: `laravel-vite-plugin` manages environment detection
+- **`@inertia`**: Renders the root div with initial page data
+- **`@inertiaHead`**: Injects page-specific head elements
 
-#### 3. Asset Manifest Reader
+#### 3. Laravel Vite Configuration
 
-**Responsibility**: Resolve compiled asset paths from Vite manifest
+**Responsibility**: Configure Laravel to find frontend files in separated structure
 
-**Implementation**: Laravel Vite plugin handles this automatically via `@vite()` directive
+**Implementation**: The `laravel-vite-plugin` in `frontend/vite.config.js` handles communication with Laravel automatically. Laravel needs to know where to find the frontend build output.
 
-**Configuration** (`config/vite.php` - to be created):
+**Configuration** (`config/vite.php` - Laravel 11+ built-in):
 ```php
 return [
-    'build_path' => env('VITE_BUILD_PATH', 'build'),
-    'manifest_path' => env('VITE_MANIFEST_PATH', public_path('build/manifest.json')),
-    'dev_server_url' => env('VITE_DEV_SERVER_URL', 'http://localhost:5173'),
-    'frontend_url' => env('FRONTEND_URL', 'http://localhost:5173'),
+    /*
+     | Build directory for compiled assets
+     | This should match the buildDirectory in frontend/vite.config.js
+     */
+    'build_directory' => env('VITE_BUILD_DIRECTORY', '../frontend/dist'),
+    
+    /*
+     | Hot file path for development mode detection
+     | Laravel checks this file to determine if Vite dev server is running
+     */
+    'hot_file' => public_path('../frontend/dist/hot'),
 ];
 ```
+
+**How It Works**:
+1. **Development Mode**: 
+   - Frontend runs `npm run dev`
+   - `laravel-vite-plugin` creates a `hot` file in `frontend/dist/`
+   - Laravel detects this file and loads assets from Vite dev server
+   - Plugin automatically configures correct URLs
+
+2. **Production Mode**:
+   - Frontend runs `npm run build`
+   - Assets compiled to `frontend/dist/` with manifest
+   - Laravel reads manifest from `frontend/dist/manifest.json`
+   - `@vite()` directive resolves hashed asset paths
 
 #### 4. CORS Configuration
 
@@ -238,29 +281,24 @@ return [
 
 #### 1. Vite Configuration (`vite.config.js`)
 
-**Responsibility**: Build React application for separated architecture
+**Responsibility**: Build React application for separated architecture while maintaining Laravel compatibility
 
 **Configuration**:
 ```javascript
 import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
-export default defineConfig(({ mode }) => ({
-    plugins: [react()],
-    
-    base: mode === 'production' 
-        ? (process.env.VITE_ASSET_URL || '/build/')
-        : '/',
-    
-    build: {
-        outDir: 'dist',
-        manifest: true,
-        rollupOptions: {
-            input: 'src/app.jsx',
-        },
-        assetsDir: 'assets',
-    },
+export default defineConfig({
+    plugins: [
+        laravel({
+            input: ['src/app.jsx'],
+            buildDirectory: 'dist',
+            refresh: true,
+        }),
+        react(),
+    ],
     
     server: {
         port: 5173,
@@ -274,15 +312,15 @@ export default defineConfig(({ mode }) => ({
             '@': path.resolve(__dirname, './src'),
         },
     },
-}));
+});
 ```
 
-**Key Changes from Laravel Vite Plugin**:
-- Remove `laravel-vite-plugin` dependency
-- Configure explicit `input` entry point
-- Set `manifest: true` for production builds
-- Configure `base` URL for asset paths
-- Enable CORS for dev server
+**Key Configuration Details**:
+- **Keep `laravel-vite-plugin`**: Required for Laravel's `@vite()` directive to work
+- **`input`**: Points to frontend entry file in separated structure (`src/app.jsx`)
+- **`buildDirectory`**: Output to `dist/` instead of default `build/`
+- **`refresh`**: Enable hot reload for development
+- **Plugin communicates with Laravel**: Vite dev server and Laravel backend coordinate automatically
 
 #### 2. Inertia App Initialization (`src/app.jsx`)
 
@@ -400,11 +438,9 @@ APP_URL=http://localhost:8000
 
 # Frontend
 FRONTEND_URL=http://localhost:5173
-VITE_DEV_SERVER_URL=http://localhost:5173
 
-# Assets
-VITE_BUILD_PATH=build
-VITE_MANIFEST_PATH=public/build/manifest.json
+# Vite Build Directory (relative to backend)
+VITE_BUILD_DIRECTORY=../frontend/dist
 
 # Session
 SESSION_DOMAIN=localhost
@@ -422,9 +458,6 @@ VITE_API_URL=http://localhost:8000
 
 # Application
 VITE_APP_NAME=Laravel
-
-# Assets (production)
-VITE_ASSET_URL=/build/
 ```
 
 ---
@@ -437,18 +470,13 @@ VITE_ASSET_URL=/build/
 
 **Symptom**: Browser shows "Failed to load resource: net::ERR_CONNECTION_REFUSED" for `http://localhost:5173`
 
-**Detection**: Laravel Vite plugin checks dev server availability
+**Detection**: Laravel checks for `frontend/dist/hot` file to detect dev server
 
 **Handling**:
-```php
-// In app.blade.php or custom middleware
-@if (app()->environment('local') && !app('vite')->isRunningHot())
-    <div style="background: #ff0000; color: white; padding: 20px;">
-        <h1>Vite Dev Server Not Running</h1>
-        <p>Please start the Vite dev server: <code>cd frontend && npm run dev</code></p>
-    </div>
-@endif
-```
+- Ensure frontend dev server is running: `cd frontend && npm run dev`
+- Verify `laravel-vite-plugin` is installed in frontend
+- Check that Vite dev server is on port 5173
+- Laravel will automatically fall back to production assets if dev server is not detected
 
 #### 2. CORS Errors
 
@@ -478,31 +506,26 @@ VITE_ASSET_URL=/build/
 
 **Symptom**: Laravel throws exception "Vite manifest not found"
 
-**Detection**: Check if `public/build/manifest.json` exists
+**Detection**: Check if `frontend/dist/manifest.json` exists
 
 **Handling**:
-```php
-// In AppServiceProvider or custom middleware
-if (app()->environment('production')) {
-    $manifestPath = public_path('build/manifest.json');
-    if (!file_exists($manifestPath)) {
-        throw new RuntimeException(
-            'Vite manifest not found. Please run: cd frontend && npm run build'
-        );
-    }
-}
-```
+- Run frontend build: `cd frontend && npm run build`
+- Verify `buildDirectory: 'dist'` is set in `frontend/vite.config.js`
+- Check `VITE_BUILD_DIRECTORY` in backend `.env` points to `../frontend/dist`
+- Ensure `laravel-vite-plugin` is properly configured in frontend
 
 #### 2. Asset 404 Errors
 
-**Symptom**: Browser shows 404 for `/build/assets/app-*.js`
+**Symptom**: Browser shows 404 for asset files
 
 **Detection**: Browser network tab shows failed asset requests
 
 **Handling**:
-- Verify compiled assets exist in `backend/public/build/`
-- Check `base` URL in `vite.config.js` matches Laravel's public path
-- Ensure build script copies assets to correct location
+- Verify `buildDirectory: 'dist'` in `frontend/vite.config.js`
+- Check `VITE_BUILD_DIRECTORY=../frontend/dist` in backend `.env`
+- Ensure frontend build completed successfully
+- Verify `laravel-vite-plugin` configuration matches Laravel's expectations
+- The plugin handles asset path resolution automatically
 
 #### 3. Inertia Version Mismatch
 
@@ -511,13 +534,10 @@ if (app()->environment('production')) {
 **Detection**: Inertia version header mismatch in network requests
 
 **Handling**:
-```php
-// In HandleInertiaRequests middleware
-public function version(Request $request): ?string
-{
-    return md5_file(public_path('build/manifest.json'));
-}
-```
+- Ensure Inertia versions match between backend and frontend
+- Backend: Check `composer.json` for `inertiajs/inertia-laravel`
+- Frontend: Check `package.json` for `@inertiajs/react`
+- The `laravel-vite-plugin` automatically handles asset versioning via manifest
 
 ### Error Response Format
 
@@ -614,14 +634,14 @@ public function test_manifest_file_exists_in_production()
 {
     config(['app.env' => 'production']);
     
-    $manifestPath = public_path('build/manifest.json');
+    $manifestPath = base_path('frontend/dist/manifest.json');
     
     $this->assertFileExists($manifestPath);
 }
 
 public function test_manifest_contains_valid_json()
 {
-    $manifestPath = public_path('build/manifest.json');
+    $manifestPath = base_path('frontend/dist/manifest.json');
     
     $content = file_get_contents($manifestPath);
     $manifest = json_decode($content, true);
@@ -633,7 +653,7 @@ public function test_manifest_contains_valid_json()
 public function test_manifest_entry_has_required_fields()
 {
     $manifest = json_decode(
-        file_get_contents(public_path('build/manifest.json')), 
+        file_get_contents(base_path('frontend/dist/manifest.json')), 
         true
     );
     
@@ -776,7 +796,7 @@ public function boot(): void
     if ($this->app->environment('production')) {
         $required = [
             'FRONTEND_URL',
-            'VITE_MANIFEST_PATH',
+            'VITE_BUILD_DIRECTORY',
             'SESSION_DOMAIN',
             'SANCTUM_STATEFUL_DOMAINS',
         ];
@@ -785,6 +805,14 @@ public function boot(): void
             if (empty(env($var))) {
                 throw new RuntimeException("Required environment variable missing: {$var}");
             }
+        }
+        
+        // Verify manifest exists
+        $manifestPath = base_path(env('VITE_BUILD_DIRECTORY') . '/manifest.json');
+        if (!file_exists($manifestPath)) {
+            throw new RuntimeException(
+                "Vite manifest not found at {$manifestPath}. Run: cd frontend && npm run build"
+            );
         }
     }
 }
@@ -806,11 +834,11 @@ public function boot(): void
 **Production Mode**:
 - [ ] Frontend builds successfully: `cd frontend && npm run build`
 - [ ] Manifest file generated: `frontend/dist/manifest.json`
-- [ ] Assets copied to backend: `backend/public/build/`
-- [ ] Backend serves compiled assets without 404s
+- [ ] Laravel can read manifest from `frontend/dist/`
+- [ ] Backend serves application without errors
 - [ ] All authentication flows work
 - [ ] No console errors in browser
-- [ ] Assets load with cache-busting hashes
+- [ ] Assets load with proper cache-busting hashes
 
 ### Test Execution
 
@@ -848,15 +876,17 @@ npm run test:e2e
 3. Move React files to `frontend/src/`
 4. Update `composer.json` and `package.json` paths
 
-### Phase 2: Frontend Configuration
-1. Update `vite.config.js` for standalone build
-2. Remove `laravel-vite-plugin` dependency
-3. Configure `src/app.jsx` with custom resolver
-4. Add environment variables to `.env`
+### Phase 2: Frontend Configuration (Hybrid Approach)
+1. Update `vite.config.js` to use `laravel-vite-plugin` with separated structure
+2. Configure `input: ['src/app.jsx']` to point to new location
+3. Set `buildDirectory: 'dist'` for output location
+4. Keep `laravel-vite-plugin` dependency (do NOT remove)
+5. Update `src/app.jsx` with custom Inertia resolver
+6. Add environment variables to `.env`
 
 ### Phase 3: Backend Configuration
-1. Create `config/vite.php` for asset paths
-2. Update `app.blade.php` template
+1. Update `config/vite.php` to point to `../frontend/dist`
+2. Update `app.blade.php` to reference `../frontend/src/app.jsx`
 3. Configure CORS in `config/cors.php`
 4. Update session and Sanctum configuration
 
@@ -864,11 +894,12 @@ npm run test:e2e
 1. Create npm scripts for concurrent dev servers
 2. Document startup commands
 3. Test HMR and session handling
+4. Verify `hot` file detection works
 
 ### Phase 5: Production Build
-1. Create build script for frontend
-2. Create deployment script to copy assets
-3. Test production build locally
+1. Test frontend build process
+2. Verify manifest generation in `frontend/dist/`
+3. Test Laravel reading manifest from frontend folder
 4. Document deployment process
 
 ### Phase 6: Testing & Documentation
