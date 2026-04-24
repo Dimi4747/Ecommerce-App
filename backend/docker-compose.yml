@@ -1,0 +1,167 @@
+name: Ecommerce-app
+
+services:
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: backend_alertmanager
+    env_file: .env
+    environment:
+      - SMTP_AUTH_PASSWORD=${MAIL_PASSWORD}
+    volumes:
+      - ./docker/alertmanager/config.yml:/etc/alertmanager/config.yml
+    ports:
+      - "9094:9093"
+    networks:
+      - backend
+
+  app:
+    build: .
+    container_name: backend_app
+    restart: unless-stopped
+    volumes:
+      - .:/var/www
+    networks:
+      - backend
+
+  nginx:
+    image: nginx:alpine
+    container_name: backend_nginx
+    restart: unless-stopped
+    ports:
+      - "8002:80"
+    volumes:
+      - .:/var/www
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - backend
+
+  db:
+    image: mysql:8.0
+    container_name: backend_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: backend-app
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_PASSWORD: secret
+      MYSQL_USER: laravel
+    ports:
+      - "3306:3306"
+    volumes:
+      - backend_dbdata:/var/lib/mysql
+    networks:
+      - backend
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: backend_prometheus
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./docker/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
+    ports:
+      - "9092:9090"
+    depends_on:
+      - alertmanager
+    networks:
+      - backend
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: backend_grafana
+    ports:
+      - "3003:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    volumes:
+      - backend_grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - backend
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: backend_cadvisor
+    ports:
+      - "8082:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - backend
+
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    container_name: backend_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    ports:
+      - "9202:9200"
+    networks:
+      - backend
+
+  logstash:
+    image: logstash:8.11.0
+    container_name: backend_logstash
+    volumes:
+      - ./docker/logstash/pipeline:/usr/share/logstash/pipeline
+      - .:/var/www
+    depends_on:
+      - elasticsearch
+    networks:
+      - backend
+
+  kibana:
+    image: kibana:8.11.0
+    container_name: backend_kibana
+    ports:
+      - "5602:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - backend
+
+  sonarqube:
+    image: sonarqube:community
+    container_name: backend_sonarqube
+    ports:
+      - "9002:9000"
+    environment:
+      - SONAR_JDBC_URL=jdbc:postgresql://sonar-db:5432/sonar
+      - SONAR_JDBC_USERNAME=sonar
+      - SONAR_JDBC_PASSWORD=sonar
+    depends_on:
+      - sonar-db
+    volumes:
+      - backend_sonarqube_data:/opt/sonarqube/data
+      - backend_sonarqube_logs:/opt/sonarqube/logs
+    networks:
+      - backend
+
+  sonar-db:
+    image: postgres:15
+    container_name: backend_sonar_db
+    environment:
+      - POSTGRES_USER=sonar
+      - POSTGRES_PASSWORD=sonar
+      - POSTGRES_DB=sonar
+    volumes:
+      - backend_sonar_db:/var/lib/postgresql/data
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  backend_dbdata:
+  backend_grafana_data:
+  backend_sonarqube_data:
+  backend_sonarqube_logs:
+  backend_sonar_db:

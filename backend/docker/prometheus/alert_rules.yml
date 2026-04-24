@@ -1,0 +1,27 @@
+groups:
+  - name: Ecommerce_alerts
+    rules:
+      - alert: AppDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SGEE est hors ligne"
+          description: "L'application ne répond plus depuis 1 minute"
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Taux d'erreur élevé"
+
+      - alert: HighCPU
+        expr: process_cpu_seconds_total > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU élevé sur SGEE"
