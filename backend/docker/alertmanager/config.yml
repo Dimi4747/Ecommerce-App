@@ -1,0 +1,15 @@
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'richinellelaurence@gmail.com'
+  smtp_auth_username: 'richinellelaurence@gmail.com'
+  smtp_auth_password: ${SMTP_AUTH_PASSWORD}
+
+route:
+  receiver: 'email-alert'
+
+receivers:
+  - name: 'email-alert'
+    email_configs:
+      - to: 'richinellelaurence@gmail.com'
+        subject: '🚨 Alerte SGEE: {{ .GroupLabels.alertname }}'
+        body: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
