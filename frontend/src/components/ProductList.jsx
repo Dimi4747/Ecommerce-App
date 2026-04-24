@@ -6,7 +6,7 @@ import {
   MagnifyingGlassIcon,
   CubeIcon 
 } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import apiClient, { API_ENDPOINTS } from '../config/api';
 
 const ProductList = () => {
   const [products, setProducts] = useState([]);
@@ -17,63 +17,13 @@ const ProductList = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await axios.get(`http://localhost:8000/api/products?page=${currentPage}`);
-        setProducts(response.data.data || response.data);
+        const response = await apiClient.get(API_ENDPOINTS.products.list);
+        // Le backend retourne un tableau direct, pas de pagination
+        const productsData = response.data;
+        setProducts(productsData);
       } catch (error) {
         console.error('Erreur lors de la récupération des produits:', error);
-        // Données mock si l'API échoue
-        setProducts([
-          {
-            id: 1,
-            name: 'MacBook Pro 16"',
-            description: 'Ordinateur portable haute performance',
-            price: 1299.99,
-            stock: 15,
-            sku: 'MBP-16-001',
-            category: 'Ordinateurs',
-            status: 'active'
-          },
-          {
-            id: 2,
-            name: 'iPhone 15 Pro',
-            description: 'Smartphone dernière génération',
-            price: 899.99,
-            stock: 25,
-            sku: 'IP15P-001',
-            category: 'Smartphones',
-            status: 'active'
-          },
-          {
-            id: 3,
-            name: 'iPad Air',
-            description: 'Tablette polyvalente',
-            price: 649.99,
-            stock: 10,
-            sku: 'IPA-001',
-            category: 'Tablettes',
-            status: 'active'
-          },
-          {
-            id: 4,
-            name: 'AirPods Pro',
-            description: 'Écouteurs sans fil premium',
-            price: 199.99,
-            stock: 50,
-            sku: 'APP-001',
-            category: 'Accessoires',
-            status: 'active'
-          },
-          {
-            id: 5,
-            name: 'Apple Watch Series 9',
-            description: 'Montre connectée intelligente',
-            price: 149.99,
-            stock: 30,
-            sku: 'AWS9-001',
-            category: 'Montres',
-            status: 'active'
-          }
-        ]);
+        setProducts([]);
       } finally {
         setLoading(false);
       }
@@ -101,9 +51,9 @@ const ProductList = () => {
     }
   };
 
-  const getStockColor = (stock) => {
-    if (stock === 0) return 'text-red-600 font-semibold';
-    if (stock < 10) return 'text-yellow-600 font-semibold';
+  const getStockColor = (stock_quantity) => {
+    if (stock_quantity === 0) return 'text-red-600 font-semibold';
+    if (stock_quantity < 10) return 'text-yellow-600 font-semibold';
     return 'text-green-600';
   };
 
@@ -146,7 +96,7 @@ const ProductList = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">En Stock</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {products.filter(p => p.stock > 0).length}
+                {products.filter(p => p.stock_quantity > 0).length}
               </p>
             </div>
           </div>
@@ -159,7 +109,7 @@ const ProductList = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">Stock Faible</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {products.filter(p => p.stock > 0 && p.stock < 10).length}
+                {products.filter(p => p.stock_quantity > 0 && p.stock_quantity < 10).length}
               </p>
             </div>
           </div>
@@ -172,7 +122,7 @@ const ProductList = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">Rupture</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {products.filter(p => p.stock === 0).length}
+                {products.filter(p => p.stock_quantity === 0).length}
               </p>
             </div>
           </div>
@@ -244,8 +194,8 @@ const ProductList = () => {
                     {typeof product.price === 'number' ? product.price.toFixed(2) : '0.00'} €
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className={getStockColor(product.stock)}>
-                      {product.stock} unités
+                    <span className={getStockColor(product.stock_quantity)}>
+                      {product.stock_quantity} unités
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

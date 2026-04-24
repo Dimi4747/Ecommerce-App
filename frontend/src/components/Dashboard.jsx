@@ -8,7 +8,7 @@ import {
   CubeIcon,
   ChartBarIcon
 } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import apiClient, { API_ENDPOINTS } from '../config/api';
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -28,7 +28,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchStatistics = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/api/orders/statistics');
+        const response = await apiClient.get(API_ENDPOINTS.orders.statistics);
         setStats(response.data);
       } catch (error) {
         console.error('Erreur lors de la récupération des statistiques:', error);

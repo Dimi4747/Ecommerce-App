@@ -9,7 +9,7 @@ import {
   PhoneIcon,
   MapPinIcon
 } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import apiClient, { API_ENDPOINTS } from '../config/api';
 
 const CustomerList = () => {
   const [customers, setCustomers] = useState([]);
@@ -20,83 +20,13 @@ const CustomerList = () => {
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
-        const response = await axios.get(`http://localhost:8000/api/customers?page=${currentPage}`);
-        setCustomers(response.data.data || response.data);
+        const response = await apiClient.get(API_ENDPOINTS.customers.list);
+        // Le backend retourne un tableau direct, pas de pagination
+        const customersData = response.data;
+        setCustomers(customersData);
       } catch (error) {
         console.error('Erreur lors de la récupération des clients:', error);
-        // Données mock si l'API échoue
-        setCustomers([
-          {
-            id: 1,
-            first_name: 'Jean',
-            last_name: 'Dupont',
-            email: 'jean.dupont@email.com',
-            phone: '06 12 34 56 78',
-            address: '123 Rue de la République, 75001 Paris',
-            city: 'Paris',
-            postal_code: '75001',
-            country: 'France',
-            created_at: '2024-01-15T10:30:00Z',
-            total_orders: 5,
-            total_spent: 2349.96
-          },
-          {
-            id: 2,
-            first_name: 'Marie',
-            last_name: 'Martin',
-            email: 'marie.martin@email.com',
-            phone: '06 23 45 67 89',
-            address: '456 Avenue des Champs-Élysées, 75008 Paris',
-            city: 'Paris',
-            postal_code: '75008',
-            country: 'France',
-            created_at: '2024-02-20T14:15:00Z',
-            total_orders: 3,
-            total_spent: 1864.98
-          },
-          {
-            id: 3,
-            first_name: 'Pierre',
-            last_name: 'Bernard',
-            email: 'pierre.bernard@email.com',
-            phone: '06 34 56 78 90',
-            address: '789 Boulevard Saint-Germain, 69001 Lyon',
-            city: 'Lyon',
-            postal_code: '69001',
-            country: 'France',
-            created_at: '2024-03-10T09:45:00Z',
-            total_orders: 2,
-            total_spent: 784.99
-          },
-          {
-            id: 4,
-            first_name: 'Sophie',
-            last_name: 'Petit',
-            email: 'sophie.petit@email.com',
-            phone: '06 45 67 89 01',
-            address: '321 Rue de la Paix, 44000 Nantes',
-            city: 'Nantes',
-            postal_code: '44000',
-            country: 'France',
-            created_at: '2024-04-05T16:20:00Z',
-            total_orders: 1,
-            total_spent: 244.99
-          },
-          {
-            id: 5,
-            first_name: 'Thomas',
-            last_name: 'Robert',
-            email: 'thomas.robert@email.com',
-            phone: '06 56 78 90 12',
-            address: '654 Place de la Concorde, 13001 Marseille',
-            city: 'Marseille',
-            postal_code: '13001',
-            country: 'France',
-            created_at: '2024-04-18T11:30:00Z',
-            total_orders: 4,
-            total_spent: 1549.96
-          }
-        ]);
+        setCustomers([]);
       } finally {
         setLoading(false);
       }

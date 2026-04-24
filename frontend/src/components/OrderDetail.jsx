@@ -7,7 +7,7 @@ import {
   CurrencyDollarIcon,
   CubeIcon
 } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import apiClient, { API_ENDPOINTS } from '../config/api';
 
 const OrderDetail = () => {
   const { id } = useParams();
@@ -18,7 +18,7 @@ const OrderDetail = () => {
   useEffect(() => {
     const fetchOrder = async () => {
       try {
-        const response = await axios.get(`http://localhost:8000/api/orders/${id}`);
+        const response = await apiClient.get(API_ENDPOINTS.orders.show(id));
         setOrder(response.data);
       } catch (error) {
         console.error('Erreur lors de la récupération de la commande:', error);
@@ -32,8 +32,9 @@ const OrderDetail = () => {
 
   const handleStatusUpdate = async (newStatus) => {
     try {
-      await axios.put(`http://localhost:8000/api/orders/${id}`, {
-        status: newStatus
+      await apiClient.put(API_ENDPOINTS.orders.update(id), {
+        status: newStatus,
+        notes: order.notes
       });
       setOrder({ ...order, status: newStatus });
       setEditingStatus(false);

@@ -6,7 +6,7 @@ import {
   TrashIcon,
   MagnifyingGlassIcon 
 } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import apiClient, { API_ENDPOINTS } from '../config/api';
 
 const OrderList = () => {
   const [orders, setOrders] = useState([]);
@@ -16,7 +16,7 @@ const OrderList = () => {
 
   const fetchOrders = useCallback(async () => {
     try {
-      const response = await axios.get(`http://localhost:8000/api/orders?page=${currentPage}`);
+      const response = await apiClient.get(`${API_ENDPOINTS.orders.list}?page=${currentPage}`);
       setOrders(response.data);
     } catch (error) {
       console.error('Erreur lors de la récupération des commandes:', error);
@@ -31,8 +31,9 @@ const OrderList = () => {
 
   const handleStatusUpdate = async (orderId, newStatus) => {
     try {
-      await axios.put(`http://localhost:8000/api/orders/${orderId}`, {
-        status: newStatus
+      await apiClient.put(API_ENDPOINTS.orders.update(orderId), {
+        status: newStatus,
+        notes: null
       });
       fetchOrders();
     } catch (error) {
@@ -43,7 +44,7 @@ const OrderList = () => {
   const handleDelete = async (orderId) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer cette commande ?')) {
       try {
-        await axios.delete(`http://localhost:8000/api/orders/${orderId}`);
+        await apiClient.delete(API_ENDPOINTS.orders.delete(orderId));
         fetchOrders();
       } catch (error) {
         console.error('Erreur lors de la suppression:', error);
